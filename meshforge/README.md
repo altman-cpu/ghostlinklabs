@@ -1,6 +1,8 @@
 # MeshForge
 
-Prompt-driven generator for **1000-layer, 3D-printable meshes**.
+**OLVR module 1.** Prompt-driven generator for **1000-layer, 3D-printable
+meshes**. (Module 2, [`pathforge/`](../pathforge/README.md), cuts the
+continuous toolpath that prints them.)
 
 You type a structural prompt (`Helix`, `Geometric waves`, `ghost, 1200 layers, bore 40`).
 MeshForge returns a watertight, manifold, hollow shell plus a **differentiation

@@ -84,7 +84,8 @@ for (const id of [
   'hud-title', 'hud-sub', 'm-layers', 'm-unique', 'm-congruent', 'm-minsep', 'm-tris', 'm-fil',
   'insp-tag', 'insp-plot', 'insp-i', 'insp-z', 'insp-r', 'insp-dig', 's-inspect',
   's-explode', 'o-explode', 'compare-label', 'pill-audit', 'pill-water',
-  't-autorotate', 't-wire', 't-scan', 't-compare',
+  't-autorotate', 't-wire', 't-scan', 't-compare', 't-path',
+  'path-readout', 'm-bead',
 ]) mk(id === 'view' || id === 'insp-plot' ? 'canvas' : 'div', id);
 
 // sliders
@@ -93,7 +94,7 @@ for (const k of sliderIds) mk('input', `s-${k}`);
 for (const k of sliderIds) mk('output', `o-${k}`);
 
 // export buttons
-const exportBtns = ['stl', 'obj', 'json', 'csv', 'png', 'cmd'].map(k => {
+const exportBtns = ['stl', 'obj', 'json', 'csv', 'png', 'cmd', 'gcode'].map(k => {
   const b = new El('button');
   b.dataset.export = k;
   return b;
@@ -215,6 +216,62 @@ for (let i = 0; i < res.params.layers; i++) {
 }
 check('baseline collapses to one silhouette', uniqueRadii.size === 1, `${uniqueRadii.size} distinct rings`);
 check('baseline still watertight', base.watertight === true);
+
+/* ------------------------------------------------- PathForge (toolpath) */
+const pf = await import(resolve(root, 'meshforge/web/pathforge.js'));
+const P = state.path;
+
+check('toolpath was cut', !!P && P.points.length === 1000 * 128 * 3,
+  P ? String(P.points.length / 3) + ' points' : 'none');
+check('toolpath audit passes', P?.audit?.pass === true,
+  `seams=${P?.audit?.seams} travel=${P?.audit?.travel_moves}`);
+check('toolpath has no seams', P?.audit?.seams === 0, String(P?.audit?.seams));
+check('toolpath never travels', P?.audit?.travel_moves === 0, String(P?.audit?.travel_moves));
+check('toolpath z never backtracks', P?.audit?.monotonic_z === true);
+check('toolpath visits every layer', P?.audit?.layers_traversed === 1000,
+  String(P?.audit?.layers_traversed));
+check('toolpath turns once per layer', Math.abs(P?.audit?.turns - 1000) < 0.1,
+  String(P?.audit?.turns));
+check('control build is rejected', P?.audit?.control?.pass === false,
+  `control travel=${P?.audit?.control?.travel_moves}`);
+check('control fails on seams, not on Z', P?.audit?.control?.seams > 0
+  && P?.audit?.control?.monotonic_z === false);
+check('readout reports a continuous bead',
+  ids.get('path-readout').innerHTML.includes('CONTINUOUS BEAD'));
+check('readout shows the rejected control',
+  ids.get('path-readout').innerHTML.includes('rejected'));
+check('HUD bead metric set', /\d/.test(text('m-bead')), text('m-bead'));
+
+// the audit must be able to fail
+const broken = Float32Array.from(P.points);
+broken[500 * 3] += 40;
+const badAudit = pf.auditPath(broken, P.extruding,
+  { layers: 1000, pitch: pf.pitchOf(res), pp: P.params });
+check('audit catches a teleport in the bead', badAudit.seams > 0 && badAudit.pass === false,
+  `seams=${badAudit.seams}`);
+
+const gcode = pf.gcodeText(P, res);
+const gMoves = gcode.split('\n').filter(l => l.startsWith('G1 X') && l.includes(' E'));
+check('g-code has one move per point', gMoves.length === P.points.length / 3 - 1,
+  `${gMoves.length}`);
+const body = (gcode.split('; ---- spiral')[1] || '').split('; ---- end')[0];
+check('g-code has no travel or lift inside the bead',
+  !/;\s*(travel|lift|descend|safe height)/.test(body),
+  (body.match(/;\s*(travel|lift|descend|safe height)/) || [''])[0]);
+const es = gMoves.map(l => parseFloat(l.split('E')[1]));
+check('g-code extrusion only ever advances', es.every((v, i) => i === 0 || v >= es[i - 1]));
+check('g-code filament matches the stats',
+  Math.abs(es[es.length - 1] - P.stats.filament_mm) / P.stats.filament_mm < 0.01,
+  `${es[es.length - 1].toFixed(1)} mm vs ${P.stats.filament_mm} mm`);
+check('g-code carries the rule and the audit',
+  gcode.includes('; rule: always match the differentiate')
+  && gcode.includes('pass=True') && gcode.includes('control (ring-per-layer): continuous=False'));
+check('g-code ends cleanly', gcode.trimEnd().endsWith('M84 ; motors off'));
+
+const thin = pf.gcodeText(P, res, { decimate: 4 });
+const thinMoves = thin.split('\n').filter(l => l.startsWith('G1 X') && l.includes(' E'));
+check('decimation shrinks the file', thinMoves.length < gMoves.length / 3,
+  `${thinMoves.length} vs ${gMoves.length}`);
 
 console.log('');
 if (fail.length) {

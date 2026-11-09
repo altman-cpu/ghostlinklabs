@@ -106,6 +106,17 @@
       </div>
 
       <div class="blk">
+        <div class="lbl">Toolpath <small>PathForge</small></div>
+        <div class="export-grid">
+          <button id="t-path" class="toggle" title="Draw the spiral bead on the model (P)">Show bead</button>
+          <button data-export="gcode" class="primary">G-code <small>spiral</small></button>
+        </div>
+        <div class="path-readout" id="path-readout">forge to cut a path…</div>
+        <p class="note">One continuous bead: no seams, no travel, Z never
+          backtracks. The ring-per-layer control is audited beside it.</p>
+      </div>
+
+      <div class="blk">
         <div class="lbl">Export</div>
         <div class="export-grid">
           <button data-export="stl" class="primary">STL <small>binary</small></button>
@@ -135,6 +146,7 @@
         <div class="metric"><span>min Δ</span><b id="m-minsep">—</b></div>
         <div class="metric"><span>triangles</span><b id="m-tris">—</b></div>
         <div class="metric"><span>filament</span><b id="m-fil">—</b></div>
+        <div class="metric"><span>bead</span><b id="m-bead">—</b></div>
       </div>
 
       <div class="hud hud-bl">

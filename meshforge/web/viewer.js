@@ -7,6 +7,7 @@ import { buildGeometryData } from './geometry.js';
 import {
   makeStl, makeObjText, makeManifestObject, makeCsvText, cliCommand,
 } from './webexport.js';
+import { defaultPathParams, spiralPath, gcodeText } from './pathforge.js';
 
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -21,8 +22,11 @@ const state = {
   draft: false,
   busy: false,
   inspect: 0,
-  toggles: { spin: true, wire: false, scan: true, layers: true, clone: false },
+  toggles: { spin: true, wire: false, scan: true, layers: true, clone: false,
+             path: true },
   explode: 0,
+  path: null,               // latest toolpath (PathForge)
+  pathParams: defaultPathParams(),
 };
 
 /* ============================================================== three */
@@ -52,6 +56,14 @@ scene.add(rim);
 
 const world = new THREE.Group();
 scene.add(world);
+
+/* toolpath: one continuous bead drawn over the mesh */
+const pathGroup = new THREE.Group();
+world.add(pathGroup);
+const pathMat = new THREE.LineBasicMaterial({
+  vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false,
+});
+let pathLine = null;
 
 /* stage: thin disc + ring at the base */
 const stage = new THREE.Group();
@@ -275,6 +287,55 @@ function applyGeometry(geo) {
   geoCache.last = geo;
 }
 
+/* ============================================================ toolpath */
+function refreshPath(res = state.res) {
+  if (!res) return null;
+  const t0 = performance.now();
+  const path = spiralPath(res, state.pathParams);
+  state.path = path;
+
+  const n = path.points.length / 3;
+  const colors = new Float32Array(n * 3);
+  const rows = res.layers;
+  for (let k = 0; k < n; k++) {
+    const i = path.layerOf[k];
+    const c = layerColor(i, res.params.layers, rows[i] && rows[i].tag);
+    colors[k * 3] = c[0]; colors[k * 3 + 1] = c[1]; colors[k * 3 + 2] = c[2];
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(path.points, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  if (pathLine) { pathLine.geometry.dispose(); pathLine.geometry = g; }
+  else { pathLine = new THREE.Line(g, pathMat); pathGroup.add(pathLine); }
+  pathGroup.position.z = -(res.height_mm || 0) / 2;
+  pathGroup.visible = state.toggles.path;
+  path.ms = performance.now() - t0;
+  updatePathReadout(path);
+  return path;
+}
+
+function updatePathReadout(path) {
+  const el = $('path-readout');
+  if (!el || !path) return;
+  const a = path.audit, st = path.stats, c = a.control || {};
+  const yes = (ok, word = 'yes') => `<b class="${ok ? 'ok' : 'bad'}">${ok ? word : 'NO'}</b>`;
+  el.innerHTML = [
+    `<div class="prow"><span>bead</span><b>${st.path_length_m} m</b></div>`,
+    `<div class="prow"><span>seams</span>${yes(a.seams === 0, '0')}</div>`,
+    `<div class="prow"><span>travel moves</span>${yes(a.travel_moves === 0, '0')}</div>`,
+    `<div class="prow"><span>monotonic z</span>${yes(a.monotonic_z)}</div>`,
+    `<div class="prow"><span>layers</span><b>${a.layers_traversed}/${st.layers}</b></div>`,
+    `<div class="prow"><span>turns</span><b>${a.turns}</b></div>`,
+    `<div class="prow"><span>filament</span><b>${st.filament_m} m · ${st.grams} g</b></div>`,
+    `<div class="prow"><span>print time</span><b>~${st.est_minutes} min</b></div>`,
+    `<div class="prow ctrl"><span>control</span><b>${c.pass === false
+      ? `rejected · ${c.travel_moves} travels` : (c.pass ? 'passed?!' : '—')}</b></div>`,
+    `<div class="pverdict ${a.pass ? 'ok' : 'bad'}">${a.pass ? 'CONTINUOUS BEAD' : 'BROKEN PATH'}</div>`,
+  ].join('');
+  const bead = $('m-bead');
+  if (bead) bead.textContent = `${st.path_length_m} m`;
+}
+
 /* =============================================================== forge */
 function setBusy(on, label = 'forging layers…') {
   state.busy = on;
@@ -316,6 +377,7 @@ async function forge({ draft = false } = {}) {
   updateHud(res, geo);
   updateInspector();
   buildFamilies();
+  if (state.toggles.path || !state.path) refreshPath(res);
   if (!draft) {
     state.params = res.params;
     syncSliders();
@@ -497,6 +559,11 @@ async function doExport(kind) {
       renderer.render(scene, camera);
       canvas.toBlob(b => download(b, `${baseName()}.png`), 'image/png');
       toast('frame captured');
+    } else if (kind === 'gcode') {
+      const path = state.path || refreshPath(res);
+      const text = gcodeText(path, res);
+      download(new Blob([text], { type: 'text/plain' }), `${baseName()}.gcode`);
+      toast(`g-code · ${fmt(path.audit.points)} moves · ${path.stats.filament_m} m filament`);
     } else if (kind === 'cmd') {
       download(new Blob([cliCommand(state.params, describe(state.params)) + '\n'],
         { type: 'text/plain' }), `${baseName()}_command.txt`);
@@ -662,6 +729,7 @@ const toggleDefs = [
   ['t-wire', 'wire', 'Wire'],
   ['t-scan', 'scan', 'Scan'],
   ['t-compare', 'clone', 'Clone test'],
+  ['t-path', 'path', 'Show bead'],
 ];
 function applyToggles() {
   for (const [id, key, label] of toggleDefs) {
@@ -670,6 +738,7 @@ function applyToggles() {
     el.textContent = label;
   }
   wire.visible = state.toggles.wire;
+  pathGroup.visible = state.toggles.path && !!pathLine;
   scanUniforms.uBands.value = state.toggles.layers ? 1 : 0;
 }
 for (const [id, key] of toggleDefs) {
@@ -677,6 +746,7 @@ for (const [id, key] of toggleDefs) {
     state.toggles[key] = !state.toggles[key];
     applyToggles();
     if (key === 'clone') setBaseline(state.toggles.clone);
+    if (key === 'path' && state.toggles.path && !state.path) refreshPath();
   });
 }
 
@@ -703,6 +773,7 @@ addEventListener('keydown', e => {
   if (k === 'w') { state.toggles.wire = !state.toggles.wire; applyToggles(); }
   if (k === 's') { state.toggles.scan = !state.toggles.scan; applyToggles(); }
   if (k === 'c') { state.toggles.clone = !state.toggles.clone; applyToggles(); setBaseline(state.toggles.clone); }
+  if (k === 'p') { state.toggles.path = !state.toggles.path; applyToggles(); if (state.toggles.path) refreshPath(); }
   if (k === 'e') { $('s-explode').value = state.explode ? 0 : 35; $('s-explode').dispatchEvent(new Event('input')); }
 });
 

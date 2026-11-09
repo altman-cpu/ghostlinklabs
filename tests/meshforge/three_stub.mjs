@@ -55,6 +55,10 @@ export class LineLoop extends Object3D {
   constructor(geometry, material) { super(); this.geometry = geometry; this.material = material; }
 }
 
+export class Line extends Object3D {
+  constructor(geometry, material) { super(); this.geometry = geometry; this.material = material; }
+}
+
 export class CircleGeometry extends BufferGeometry {
   constructor(r = 1, seg = 32) { super(); this.r = r; this.seg = seg; }
 }

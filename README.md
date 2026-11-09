@@ -1,4 +1,29 @@
-# GhostLink — A Sovereign AI Framework
+# OLVR — provable generative manufacturing
+
+**Prompt in, artifact out, proof attached.**
+
+| module | prompt → | proof |
+| --- | --- | --- |
+| [`meshforge/`](meshforge/README.md) | 1000-layer watertight printable mesh | differentiation audit: every layer is its own slice, never a scaled copy |
+| [`pathforge/`](pathforge/README.md) | one continuous spiral toolpath (g-code) | continuity audit: no seams, no travel, Z never backtracks |
+
+```bash
+python3 -m meshforge serve                 # web forge at http://localhost:7600
+python3 -m meshforge export "Helix, 1000 layers, bore 46%" -o out/
+python3 -m pathforge export "Helix, 1000 layers, bore 46%" -o out/
+python3 -m pytest tests/ -q                # 65 checks
+```
+
+See [`OLVR.md`](OLVR.md) for the brand and the module contract every module
+keeps: one command, one audit, a control that the audit must reject, tests.
+
+---
+
+# GhostLink — legacy package
+
+_The material below documents the original GhostLink framework, which predates
+the OLVR name. It is kept for reference; new work lives under `meshforge/`,
+`pathforge/` and `olvr/`._
 
 GhostLink is a sovereign AI framework with symbolic reasoning and diagnostic tools.
 

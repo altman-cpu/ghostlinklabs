@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import math
 from array import array
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Sequence, Tuple
 
 from .differentiator import Glyph, audit_layers, digest, glyph, signature, stamp
@@ -61,10 +61,13 @@ class ForgeResult:
     stats: dict
     gid: str
     digest: str
+    profiles: List[List[float]] = field(default_factory=list)
+    glyphs: List[Glyph] = field(default_factory=list)
 
     def manifest(self) -> dict:
         return {
             "generator": "MeshForge 1.0",
+            "brand": "OLVR",
             "rule": "always match the differentiate",
             "id": self.gid,
             "digest": self.digest,
@@ -402,4 +405,5 @@ def forge(params: Params | None = None, prompt: str = "") -> ForgeResult:
         params=p, mesh=mesh, layers=layer_rows, audit=audit, stats=stats,
         gid=gid,
         digest=stamp(",".join(r["digest"] for r in layer_rows)),
+        profiles=profiles, glyphs=glyphs,
     )

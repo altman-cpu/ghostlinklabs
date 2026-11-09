@@ -3,16 +3,16 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ghostlink"
-version = "0.1.0"
-description = "GhostLink - A sovereign AI framework with symbolic reasoning and diagnostic tools"
+name = "olvr"
+version = "0.2.0"
+description = "OLVR - provable generative manufacturing modules (MeshForge, PathForge)"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "Proprietary"}
 authors = [
-    {name = "Ghost", email = "ghost@ghostlink.engineering"}
+    {name = "OLVR", email = "olvr@ghostlink.engineering"}
 ]
-keywords = ["ai", "framework", "symbolic", "reasoning", "diagnostics"]
+keywords = ["olvr", "meshforge", "pathforge", "3d-printing", "generative", "gcode", "audit"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -53,7 +53,7 @@ Repository = "https://github.com/devrgar-cyber/ghostlinklabs"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ghostlink*"]
+include = ["olvr*", "meshforge*", "pathforge*", "ghostlink*"]
 exclude = ["tests*"]
 
 [tool.setuptools.package-data]
@@ -78,4 +78,4 @@ select = ["E", "F", "W", "I", "N", "UP"]
 ignore = ["E501"]  # Line too long (handled by black)
 
 [tool.ruff.isort]
-known-first-party = ["ghostlink"]
+known-first-party = ["olvr", "meshforge", "pathforge", "ghostlink"]
