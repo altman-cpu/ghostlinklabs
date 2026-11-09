@@ -96,3 +96,8 @@ coverage.out
 *.sqlite3
 test_*.db
 demo_*.db
+
+# generated meshforge exports
+*.stl
+*.obj
+*.layers.stl

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MeshForge — 1000-layer printable meshes</title>
+<meta name="description" content="Forge 1000-layer 3D printable meshes from structural prompts. Every layer is differentiated, and the stack proves it." />
+<link rel="stylesheet" href="./styles.css" />
+<script type="importmap">
+{ "imports": { "three": "../three/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="brand-text">MESH<span>FORGE</span></span>
+      <span class="ver">v1.0 · 1000L</span>
+    </div>
+    <div class="badge-row">
+      <div class="pill" id="pill-audit" title="No two layers are congruent">
+        <span class="dot"></span><span id="audit-verdict">differentiated</span>
+      </div>
+      <div class="pill ghost" id="pill-water" title="Closed surface, two triangles per edge">
+        <span class="dot"></span><span id="water-verdict">watertight</span>
+      </div>
+      <div class="pill ghost" id="pill-id" title="Forge id (SHA-256 of params + topology)">
+        <span class="mono" id="forge-id">————</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <aside class="rail" aria-label="Prompt and parameters">
+      <div class="blk">
+        <label class="lbl" for="prompt">Structural prompt</label>
+        <textarea id="prompt" rows="3" spellcheck="false"
+          placeholder="Type 3D artwork prompt (e.g., Helix, Geometric waves)…"></textarea>
+        <div class="row">
+          <button id="forge" class="primary">Forge <kbd>⏎</kbd></button>
+          <button id="random" class="ghostbtn" title="Random structural prompt">Surprise</button>
+        </div>
+        <div class="chips" id="chips">
+          <button data-p="Helix, 3-fold twist, hollow">Helix, 3-fold twist, hollow</button>
+          <button data-p="Geometric waves, 5 petals, fine layers">Geometric waves, 5 petals</button>
+          <button data-p="Ghost teardrop tower, 180 mm tall, hollow">Ghost teardrop, 180 mm</button>
+          <button data-p="Mountain ridge, coarse, 8-fold">Mountain ridge, 8-fold</button>
+          <button data-p="Seed pod phyllotaxis, 400 layers, tight twist">Seed pod, tight twist</button>
+          <button data-p="Vortex fluted column, bore 50, dense">Vortex, bore 50</button>
+          <button data-p="Lattice gear, 12-fold, differentiation 90">Lattice gear, diff 90</button>
+          <button data-p="Spiral sweep, 2 turns, 60 mm diameter">Spiral sweep, 60 mm</button>
+        </div>
+      </div>
+
+      <div class="blk">
+        <div class="lbl-row"><span class="lbl">Family</span><span class="hint" id="family-hint">—</span></div>
+        <div class="families" id="families"></div>
+      </div>
+
+      <div class="blk sliders">
+        <div class="lbl-row"><span class="lbl">Stack</span><span class="hint">live</span></div>
+
+        <div class="ctl">
+          <div class="ctl-head"><span>Layers</span><output id="o-layers">1000</output></div>
+          <input type="range" id="s-layers" min="64" max="2000" step="1" value="1000" />
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><span>Samples / layer</span><output id="o-samples">128</output></div>
+          <input type="range" id="s-samples" min="32" max="256" step="8" value="128" />
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><span>Folds</span><output id="o-lobes">3</output></div>
+          <input type="range" id="s-lobes" min="2" max="16" step="1" value="3" />
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><span>Twist</span><output id="o-twist">1.0×</output></div>
+          <input type="range" id="s-twist" min="-3" max="3" step="0.05" value="1" />
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><span>Relief</span><output id="o-amp">30%</output></div>
+          <input type="range" id="s-amp" min="0" max="55" step="1" value="30" />
+        </div>
+        <div class="ctl emphasis">
+          <div class="ctl-head"><span>Differentiation <b>D</b></span><output id="o-diff">0.55</output></div>
+          <input type="range" id="s-diff" min="0" max="1.6" step="0.01" value="0.55" />
+          <div class="ticks"><span>0 clone</span><span>1.6 max</span></div>
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><span>Bore</span><output id="o-bore">0%</output></div>
+          <input type="range" id="s-bore" min="0" max="70" step="1" value="0" />
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><span>Ø build</span><output id="o-dia">60 mm</output></div>
+          <input type="range" id="s-dia" min="8" max="200" step="1" value="60" />
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><span>Layer height</span><output id="o-lh">0.20 mm</output></div>
+          <input type="range" id="s-lh" min="0.04" max="0.6" step="0.01" value="0.2" />
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><span>Seed</span><output id="o-seed">0</output></div>
+          <input type="range" id="s-seed" min="0" max="999" step="1" value="0" />
+        </div>
+      </div>
+
+      <div class="blk">
+        <div class="lbl">Export</div>
+        <div class="export-grid">
+          <button data-export="stl" class="primary">STL <small>binary</small></button>
+          <button data-export="obj">OBJ</button>
+          <button data-export="json">Manifest <small>json</small></button>
+          <button data-export="csv">Layers <small>csv</small></button>
+          <button data-export="png">Frame <small>png</small></button>
+          <button data-export="cmd">CLI <small>command</small></button>
+        </div>
+        <p class="note">Python exporter writes the identical geometry:
+          <code>python -m meshforge export "&lt;prompt&gt;"</code></p>
+      </div>
+    </aside>
+
+    <section class="stage" id="stage">
+      <canvas id="view"></canvas>
+
+      <div class="hud hud-tl">
+        <div class="hud-title" id="hud-title">Helix · 1000L × 128P</div>
+        <div class="hud-sub" id="hud-sub">3-fold · twist 1.0× · 200 mm tall</div>
+      </div>
+
+      <div class="hud hud-tr">
+        <div class="metric"><span>layers</span><b id="m-layers">1000</b></div>
+        <div class="metric"><span>unique</span><b id="m-unique">1000</b></div>
+        <div class="metric"><span>congruent</span><b id="m-congruent" class="ok">0</b></div>
+        <div class="metric"><span>min Δ</span><b id="m-minsep">—</b></div>
+        <div class="metric"><span>triangles</span><b id="m-tris">—</b></div>
+        <div class="metric"><span>filament</span><b id="m-fil">—</b></div>
+      </div>
+
+      <div class="hud hud-bl">
+        <div class="inspector">
+          <div class="insp-head">
+            <span class="lbl">Layer inspector</span>
+            <span class="mono" id="insp-tag">—</span>
+          </div>
+          <canvas id="insp-plot" width="240" height="120"></canvas>
+          <div class="insp-meta">
+            <span>i <b id="insp-i">—</b></span>
+            <span>z <b id="insp-z">—</b></span>
+            <span>r <b id="insp-r">—</b></span>
+            <span class="dig" id="insp-dig">—</span>
+          </div>
+          <input type="range" id="s-inspect" min="0" max="999" step="1" value="0" />
+        </div>
+      </div>
+
+      <div class="hud hud-br">
+        <div class="controls">
+          <button id="t-autorotate" class="toggle on" title="Auto-rotate (R)">Spin</button>
+          <button id="t-wire" class="toggle" title="Wireframe (W)">Wire</button>
+          <button id="t-scan" class="toggle on" title="Layer scan sweep (S)">Scan</button>
+          <button id="t-compare" class="toggle" title="Compare against a flat extrusion (C)">Clone test</button>
+        </div>
+        <div class="ctl inline">
+          <div class="ctl-head"><span>Explode</span><output id="o-explode">0%</output></div>
+          <input type="range" id="s-explode" min="0" max="100" step="1" value="0" />
+        </div>
+      </div>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <div id="loading" class="loading hidden"><div class="bar"><i></i></div><span>forging layers…</span></div>
+      <div class="compare-label hidden" id="compare-label">baseline · one silhouette extruded 1000×</div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>rule — <b>always match the differentiate</b></span>
+    <span class="sep">·</span>
+    <span>layer <i>i</i> = F(u<sub>i</sub>, θ) + D·∂F/∂u + glyph<sub>i</sub></span>
+    <span class="sep">·</span>
+    <span>stdlib-only generator, three.js preview</span>
+  </footer>
+</div>
+
+<script type="module" src="./viewer.js"></script>
+</body>
+</html>
